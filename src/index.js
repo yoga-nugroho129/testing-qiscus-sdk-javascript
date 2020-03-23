@@ -17,6 +17,8 @@ import { tryCatch } from './lib/util'
 import Package from '../package.json'
 import { Hooks, hookAdapterFactory } from './lib/adapters/hook'
 
+let setBackToOnline
+
 /**
  * Qiscus Web SDK Core Class
  *
@@ -443,12 +445,11 @@ class QiscusSDK {
       this.roomAdapter = new RoomAdapter(this.HTTPAdapter)
 
       this.realtimeAdapter.subscribeUserChannel()
-      if (this.presensePublisherId != null && this.presensePublisherId !== -1) {
-        clearInterval(this.presensePublisherId)
+      if (this.presencePublisherId != null && this.presencePublisherId !== -1) {
+        clearInterval(this.presencePublisherId)
       }
-      this.presensePublisherId = 
-        (setTimeout(() => this.realtimeAdapter.publishPresence(this.user_id, true)), 
-        0)
+
+      this.presencePublisherId = this.publishOnlinePresence(true)
 
       // if (this.sync === "http" || this.sync === "both") this.activateSync();
       if (this.options.loginSuccessCallback) {
@@ -695,11 +696,30 @@ class QiscusSDK {
     this.events.emit('login-success', data)
   }
 
-  publishOnlinePresence(val) { 
-    this.realtimeAdapter.publishPresence(this.user_id, val)
+  publishOnlinePresence(val) {
+    if (val === true) {
+      setBackToOnline = setInterval(() => {
+        this.realtimeAdapter.publishPresence(this.user_id, true) 
+      }, 3500)
+    } else {
+      clearInterval(this.presencePublisherId)
+      clearInterval(setBackToOnline)
+      setTimeout(() => {
+        this.realtimeAdapter.publishPresence(this.user_id, false) 
+      }, 3500)
+    }
+  }
+
+  subscribeUserPresence(userId) {
+    this.realtimeAdapter.subscribeUserPresence(userId)
+  }
+
+  unsubscribeUserPresence(userId) {
+    this.realtimeAdapter.unsubscribeUserPresence(userId)
   }
 
   logout() {
+    this.publishOnlinePresence(false)
     this.selected = null
     this.isInit = false
     this.isLogin = false
@@ -1117,7 +1137,7 @@ class QiscusSDK {
       username_as: this.username,
       username_real: this.user_id,
       user_avatar_url: this.userData.avatar_url,
-      user_extras: this.userData.user_extras, 
+      user_extras: this.userData.user_extras,
       id: Math.round(Math.random() * 10e6),
       type: type || 'text',
       timestamp: format(new Date()),

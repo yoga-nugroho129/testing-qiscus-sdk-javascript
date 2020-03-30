@@ -46,8 +46,7 @@ class QiscusSDK {
     this.uploadURL = `${this.baseURL}/api/v2/sdk/upload`
     this.mqttURL = 'wss://mqtt.qiscus.com:1886/mqtt'
     this.brokerLbUrl = 'https://realtime.qiscus.com'
-    this.brokerUrl = 'wss://mqtt.qiscus.com:1886/mqtt'
-    this.syncOnConnect = 30000
+    this.syncOnConnect = 3000
     this.enableEventReport = false
     this.enableRealtime = true
     this.enableRealtimeCheck = true
@@ -98,7 +97,6 @@ class QiscusSDK {
     // set AppID
     if (!config.AppId) throw new Error('Please provide valid AppId')
     this.AppId = config.AppId
-
     // We need to disable realtime load balancing if user are using custom server
     // and did not provide a brokerLbUrl
     const isDifferentBaseUrl =
@@ -140,7 +138,6 @@ class QiscusSDK {
     if (config.templateFunction) {
       this.templateFunction = config.templateFunction
     }
-
     if (config.syncInterval != null) this.syncInterval = config.syncInterval
     this._customHeader = {}
 
@@ -196,7 +193,6 @@ class QiscusSDK {
         room_id: data.roomId
       })
     )
-
     this.syncAdapter = SyncAdapter(() => this.HTTPAdapter, {
       getToken: () => this.userData.token,
       interval: this.syncInterval,
@@ -253,11 +249,30 @@ class QiscusSDK {
         this.events.emit('room-cleared', room)
       })
     })
-
     this.customEventAdapter = CustomEventAdapter(
       this.realtimeAdapter,
       this.user_id
     )
+
+    // set appConfig
+    this.HTTPAdapter = new HttpAdapter({
+      baseURL: this.baseURL,
+      AppId: this.AppId,
+      userId: this.user_id,
+      version: this.version,
+      getCustomHeader: () => this._customHeader
+    })
+    this.HTTPAdapter.get_request('api/v2/sdk/config').then((res) => {
+      this.baseURL = res.body.results.base_url,
+      this.brokerLbUrl = res.body.results.broker_lb_url,
+      this.mqttURL = res.body.results.broker_url,
+      this.enableEventReport = res.body.results.enable_event_report,
+      this.enableRealtime = res.body.results.enable_realtime,
+      this.enableRealtimeCheck = res.body.results.enable_realtime_check,
+      this.syncInterval = res.body.results.sync_interval,
+      this.extras = res.body.results.extras,
+      this.syncOnConnect = res.body.results.sync_on_connect
+    })
   }
 
   _setRead(messageId, messageUniqueId, userId) {
@@ -332,6 +347,17 @@ class QiscusSDK {
       })
       self.HTTPAdapter.setToken(self.userData.token)
       self.authAdapter = new AuthAdapter(self.HTTPAdapter)
+      // self.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
+      //   self.baseURL = resp.body.results.base_url
+      //   self.brokerLbUrl = resp.body.results.broker_lb_url
+      //   self.mqttURL = resp.body.results.broker_url
+      //   self.enableEventReport = resp.body.results.enable_event_report
+      //   self.enableRealtime = resp.body.results.enable_realtime
+      //   self.enableRealtimeCheck = resp.body.results.enable_realtime_check
+      //   self.syncInterval = resp.body.results.sync_interval
+      //   self.extras = resp.body.results.extras
+      //   self.syncOnConnect = resp.body.results.sync_on_connect
+      // })
     })
 
     self.events.on('room-changed', (room) => {
@@ -1220,74 +1246,6 @@ class QiscusSDK {
   }
 
   // #endregion
-  setup(appId, syncInterval = this.syncInterval) {
-    this.setupWithCustomServer(
-      appId,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      syncInterval,
-      undefined
-    )
-  }
-
-  setupWithCustomServer(
-    appId,
-    baseUrl = this.baseURL,
-    brokerLbUrl = this.brokerLbUrl,
-    brokerUrl = this.brokerUrl,
-    enableEventReport = this.enableEventReport,
-    enableRealtime = this.enableRealtime,
-    enableRealtimeCheck = this.enableRealtimeCheck,
-    extras = this.extras,
-    syncInterval = this.syncInterval,
-    syncOnConnect = this.syncOnConnect
-  ) {
-    this.HTTPAdapter.get_request('api/v2/sdk/config').then(resp => {
-      this.AppId = appId
-
-      if (baseUrl !== this.baseURL) {
-        this.baseURL = resp.body.results.base_url
-      }
-
-      if (brokerLbUrl !== this.brokerLbUrl) {
-        this.brokerLbUrl = resp.body.results.broker_lb_url
-      }
-
-      if (brokerUrl !== this.brokerUrl) {
-        this.brokerUrl = resp.body.results.broker_url
-      }
-
-      if (enableEventReport !== this.enableEventReport) {
-        this.enableEventReport = resp.body.results.enable_event_report
-      }
-
-      if (enableRealtime !== this.enableRealtime) {
-        this.enableRealtime = resp.body.results.enable_realtime
-      }
-
-      if (enableRealtimeCheck !== this.enableRealtimeCheck) {
-        this.enableRealtimeCheck = resp.body.results.enable_realtime_check
-      }
-
-      if (extras !== this.extras) {
-        this.extras = resp.body.results.extras
-      }
-
-      if (syncInterval !== this.syncInterval) {
-        this.syncInterval = resp.body.results.sync_interval
-      }
-
-      if (syncOnConnect !== this.syncOnConnect) {
-        this.syncOnConnect = resp.body.results.sync_on_connect
-      }
-    })
-  }
-
   getUsers(query = '', page = 1, limit = 20) {
     return this.HTTPAdapter.get_request('api/v2/sdk/get_user_list')
       .query({

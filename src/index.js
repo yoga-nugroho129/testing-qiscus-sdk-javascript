@@ -16,7 +16,6 @@ import { GroupChatBuilder } from './lib/utils'
 import { tryCatch } from './lib/util'
 import Package from '../package.json'
 import { Hooks, hookAdapterFactory } from './lib/adapters/hook'
-
 let setBackToOnline
 
 /**
@@ -262,16 +261,105 @@ class QiscusSDK {
       version: this.version,
       getCustomHeader: () => this._customHeader
     })
-    this.HTTPAdapter.get_request('api/v2/sdk/config').then((res) => {
-      this.baseURL = res.body.results.base_url,
-      this.brokerLbUrl = res.body.results.broker_lb_url,
-      this.mqttURL = res.body.results.broker_url,
-      this.enableEventReport = res.body.results.enable_event_report,
-      this.enableRealtime = res.body.results.enable_realtime,
-      this.enableRealtimeCheck = res.body.results.enable_realtime_check,
-      this.syncInterval = res.body.results.sync_interval,
-      this.extras = res.body.results.extras,
-      this.syncOnConnect = res.body.results.sync_on_connect
+    this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
+      if (
+        resp.body.results.base_url == '' && 
+        config.baseURL == undefined
+      ) {
+        this.baseURL
+      } else {
+        resp.body.results.base_url == ''
+          ? (this.baseURL = config.baseURL)
+          : (this.baseURL = resp.body.results.base_url)
+      }
+
+      if (
+        resp.body.results.broker_lb_url == '' &&
+        config.brokerLbUrl == undefined
+      ) {
+        this.brokerLbUrl
+      } else {
+        resp.body.results.broker_lb_url == ''
+          ? (this.brokerLbUrl = config.brokerLbUrl)
+          : (this.brokerLbUrl = resp.body.results.broker_lb_url)
+      }
+
+      if (
+        resp.body.results.broker_url == '' && 
+        config.mqttURL == undefined
+      ) {
+        this.mqttURL
+      } else {
+        resp.body.results.broker_url == ''
+          ? (this.mqttURL = config.mqttURL)
+          : (this.mqttURL = resp.body.results.broker_url)
+      }
+
+      if (
+        resp.body.results.enable_event_report == '' &&
+        config.enableEventReport == undefined
+      ) {
+        this.enableEventReport
+      } else {
+        resp.body.results.enable_event_report == ''
+          ? (this.enableEventReport = config.enableEventReport)
+          : (this.enableEventReport = resp.body.results.enable_event_report)
+      }
+
+      if (
+        resp.body.results.enable_realtime == '' &&
+        config.enableRealtime == undefined
+      ) {
+        this.enableRealtime
+      } else {
+        resp.body.results.enable_realtime == ''
+          ? (this.enableRealtime = config.enableRealtime)
+          : (this.enableRealtime = resp.body.results.enable_realtime)
+      }
+
+      if (
+        resp.body.results.enable_realtime_check == '' &&
+        config.enableRealtimeCheck == undefined
+      ) {
+        this.enableRealtimeCheck
+      } else {
+        resp.body.results.enable_realtime_check == ''
+          ? (this.enableRealtimeCheck = config.enableRealtimeCheck)
+          : (this.enableRealtimeCheck = resp.body.results.enable_realtime_check)
+      }
+
+      if (
+        resp.body.results.sync_interval == '' && 
+        config.syncInterval == undefined
+      ) {
+        this.syncInterval
+      } else {
+        resp.body.results.sync_interval == ''
+          ? (this.syncInterval = config.syncInterval)
+          : (this.syncInterval = resp.body.results.sync_interval)
+      }
+
+      if (
+        resp.body.results.extras == '' &&
+        config.extras == undefined
+      ) {
+        this.extras
+      } else {
+        resp.body.results.extras == ''
+          ? (this.extras = config.extras)
+          : (this.extras = resp.body.results.extras)
+      }
+
+      if (
+        resp.body.results.sync_on_connect == '' && 
+        config.syncOnConnect ==undefined
+      ) {
+        this.syncOnConnect
+      } else {
+        resp.body.results.sync_on_connect == ''
+          ? (this.syncOnConnect = config.syncOnConnect)
+          : (this.syncOnConnect = resp.body.results.sync_on_connect)
+      }
     })
   }
 
@@ -347,17 +435,6 @@ class QiscusSDK {
       })
       self.HTTPAdapter.setToken(self.userData.token)
       self.authAdapter = new AuthAdapter(self.HTTPAdapter)
-      // self.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
-      //   self.baseURL = resp.body.results.base_url
-      //   self.brokerLbUrl = resp.body.results.broker_lb_url
-      //   self.mqttURL = resp.body.results.broker_url
-      //   self.enableEventReport = resp.body.results.enable_event_report
-      //   self.enableRealtime = resp.body.results.enable_realtime
-      //   self.enableRealtimeCheck = resp.body.results.enable_realtime_check
-      //   self.syncInterval = resp.body.results.sync_interval
-      //   self.extras = resp.body.results.extras
-      //   self.syncOnConnect = resp.body.results.sync_on_connect
-      // })
     })
 
     self.events.on('room-changed', (room) => {

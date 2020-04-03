@@ -45,7 +45,7 @@ class QiscusSDK {
     this.uploadURL = `${this.baseURL}/api/v2/sdk/upload`
     this.mqttURL = 'wss://mqtt.qiscus.com:1886/mqtt'
     this.brokerLbUrl = 'https://realtime.qiscus.com'
-    this.syncOnConnect = 3000
+    this.syncOnConnect = 10000
     this.enableEventReport = false
     this.enableRealtime = true
     this.enableRealtimeCheck = true
@@ -54,7 +54,7 @@ class QiscusSDK {
     this.customEventAdapter = null
     this.isInit = false
     this.isSynced = false
-    this.syncInterval = 5000
+    this.syncInterval = 3000
     this.sync = 'socket' // possible values 'socket', 'http', 'both'
     this.enableLb = true
     this.httpsync = null
@@ -140,6 +140,106 @@ class QiscusSDK {
     if (config.syncInterval != null) this.syncInterval = config.syncInterval
     this._customHeader = {}
 
+    // set appConfig
+    this.HTTPAdapter = new HttpAdapter({
+      baseURL: this.baseURL,
+      AppId: this.AppId,
+      userId: this.user_id,
+      version: this.version,
+      getCustomHeader: () => this._customHeader
+    })
+    this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
+      if (resp.body.results.base_url == '' && config.baseURL == undefined) {
+        this.baseURL
+      } else {
+        resp.body.results.base_url == ''
+          ? (this.baseURL = config.baseURL)
+          : (this.baseURL = resp.body.results.base_url)
+      }
+
+      if (
+        resp.body.results.broker_lb_url == '' &&
+        config.brokerLbUrl == undefined
+      ) {
+        this.brokerLbUrl
+      } else {
+        resp.body.results.broker_lb_url == ''
+          ? (this.brokerLbUrl = `wss://${config.brokerLbUrl}:1886/mqtt`)
+          : (this.brokerLbUrl = `wss://${resp.body.results.broker_lb_url}:1886/mqtt`)
+      }
+
+      if (resp.body.results.broker_url == '' && config.mqttURL == undefined) {
+        this.mqttURL
+      } else {
+        resp.body.results.broker_url == ''
+          ? (this.mqttURL = config.mqttURL)
+          : (this.mqttURL = resp.body.results.broker_url)
+      }
+
+      if (
+        resp.body.results.enable_event_report == null &&
+        config.enableEventReport == undefined
+      ) {
+        this.enableEventReport
+      } else {
+        resp.body.results.enable_event_report == null
+          ? (this.enableEventReport = config.enableEventReport)
+          : (this.enableEventReport = resp.body.results.enable_event_report)
+      }
+
+      if (
+        resp.body.results.enable_realtime == null &&
+        config.enableRealtime == undefined
+      ) {
+        this.enableRealtime
+      } else {
+        resp.body.results.enable_realtime == null
+          ? (this.enableRealtime = config.enableRealtime)
+          : (this.enableRealtime = resp.body.results.enable_realtime)
+      }
+
+      if (
+        resp.body.results.enable_realtime_check == null &&
+        config.enableRealtimeCheck == undefined
+      ) {
+        this.enableRealtimeCheck
+      } else {
+        resp.body.results.enable_realtime_check == null
+          ? (this.enableRealtimeCheck = config.enableRealtimeCheck)
+          : (this.enableRealtimeCheck = resp.body.results.enable_realtime_check)
+      }
+
+      if (
+        resp.body.results.sync_interval == '' &&
+        config.syncInterval == undefined
+      ) {
+        this.syncInterval
+      } else {
+        resp.body.results.sync_interval == ''
+          ? (this.syncInterval = config.syncInterval)
+          : (this.syncInterval = resp.body.results.sync_interval)
+      }
+
+      if (resp.body.results.extras == '' && config.extras == undefined) {
+        this.extras
+      } else {
+        resp.body.results.extras == ''
+          ? (this.extras = config.extras)
+          : (this.extras = resp.body.results.extras)
+      }
+
+      if (
+        resp.body.results.sync_on_connect == '' &&
+        config.syncOnConnect == undefined
+      ) {
+        this.syncOnConnect
+      } else {
+        resp.body.results.sync_on_connect == ''
+          ? (this.syncOnConnect = config.syncOnConnect)
+          : (this.syncOnConnect = resp.body.results.sync_on_connect)
+      }
+    })
+    
     // set Event Listeners
     this.setEventListeners()
 
@@ -194,8 +294,9 @@ class QiscusSDK {
     )
     this.syncAdapter = SyncAdapter(() => this.HTTPAdapter, {
       getToken: () => this.userData.token,
-      interval: this.syncInterval,
-      getShouldSync: () => this.isLogin && !this.realtimeAdapter.connected
+      syncInterval: () => this.syncInterval,
+      getShouldSync: () => this.isLogin && !this.realtimeAdapter.connected,
+      syncOnConnect: () => this.syncOnConnect
     })
     this.syncAdapter.on('message.new', async (message) => {
       message = await this._hookAdapter.trigger(
@@ -252,115 +353,6 @@ class QiscusSDK {
       this.realtimeAdapter,
       this.user_id
     )
-
-    // set appConfig
-    this.HTTPAdapter = new HttpAdapter({
-      baseURL: this.baseURL,
-      AppId: this.AppId,
-      userId: this.user_id,
-      version: this.version,
-      getCustomHeader: () => this._customHeader
-    })
-    this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
-      if (
-        resp.body.results.base_url == '' && 
-        config.baseURL == undefined
-      ) {
-        this.baseURL
-      } else {
-        resp.body.results.base_url == ''
-          ? (this.baseURL = config.baseURL)
-          : (this.baseURL = resp.body.results.base_url)
-      }
-
-      if (
-        resp.body.results.broker_lb_url == '' &&
-        config.brokerLbUrl == undefined
-      ) {
-        this.brokerLbUrl
-      } else {
-        resp.body.results.broker_lb_url == ''
-          ? (this.brokerLbUrl = config.brokerLbUrl)
-          : (this.brokerLbUrl = resp.body.results.broker_lb_url)
-      }
-
-      if (
-        resp.body.results.broker_url == '' && 
-        config.mqttURL == undefined
-      ) {
-        this.mqttURL
-      } else {
-        resp.body.results.broker_url == ''
-          ? (this.mqttURL = config.mqttURL)
-          : (this.mqttURL = resp.body.results.broker_url)
-      }
-
-      if (
-        resp.body.results.enable_event_report == '' &&
-        config.enableEventReport == undefined
-      ) {
-        this.enableEventReport
-      } else {
-        resp.body.results.enable_event_report == ''
-          ? (this.enableEventReport = config.enableEventReport)
-          : (this.enableEventReport = resp.body.results.enable_event_report)
-      }
-
-      if (
-        resp.body.results.enable_realtime == '' &&
-        config.enableRealtime == undefined
-      ) {
-        this.enableRealtime
-      } else {
-        resp.body.results.enable_realtime == ''
-          ? (this.enableRealtime = config.enableRealtime)
-          : (this.enableRealtime = resp.body.results.enable_realtime)
-      }
-
-      if (
-        resp.body.results.enable_realtime_check == '' &&
-        config.enableRealtimeCheck == undefined
-      ) {
-        this.enableRealtimeCheck
-      } else {
-        resp.body.results.enable_realtime_check == ''
-          ? (this.enableRealtimeCheck = config.enableRealtimeCheck)
-          : (this.enableRealtimeCheck = resp.body.results.enable_realtime_check)
-      }
-
-      if (
-        resp.body.results.sync_interval == '' && 
-        config.syncInterval == undefined
-      ) {
-        this.syncInterval
-      } else {
-        resp.body.results.sync_interval == ''
-          ? (this.syncInterval = config.syncInterval)
-          : (this.syncInterval = resp.body.results.sync_interval)
-      }
-
-      if (
-        resp.body.results.extras == '' &&
-        config.extras == undefined
-      ) {
-        this.extras
-      } else {
-        resp.body.results.extras == ''
-          ? (this.extras = config.extras)
-          : (this.extras = resp.body.results.extras)
-      }
-
-      if (
-        resp.body.results.sync_on_connect == '' && 
-        config.syncOnConnect ==undefined
-      ) {
-        this.syncOnConnect
-      } else {
-        resp.body.results.sync_on_connect == ''
-          ? (this.syncOnConnect = config.syncOnConnect)
-          : (this.syncOnConnect = resp.body.results.sync_on_connect)
-      }
-    })
   }
 
   _setRead(messageId, messageUniqueId, userId) {

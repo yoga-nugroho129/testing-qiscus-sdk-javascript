@@ -2,18 +2,18 @@ import mitt from 'mitt'
 import UrlBuilder from '../url-builder'
 
 const noop = () => {}
-const sleep = time => new Promise(res => setTimeout(res, time))
+const sleep = (time) => new Promise((res) => setTimeout(res, time))
 
-function synchronizeFactory (getHttp, getInterval, getSync, getId, logger) {
+function synchronizeFactory(getHttp, getInterval, getSync, getId, logger) {
   const emitter = mitt()
-  const synchronize = messageId => {
+  const synchronize = (messageId) => {
     const url = UrlBuilder('api/v2/sdk/sync')
       .param('last_received_comment_id', messageId)
       .build()
 
     return getHttp()
       .get(url)
-      .then(resp => {
+      .then((resp) => {
         const results = resp.body.results
         const messages = results.comments
         const lastMessageId = results.meta.last_received_comment_id
@@ -26,7 +26,7 @@ function synchronizeFactory (getHttp, getInterval, getSync, getId, logger) {
       })
       .catch(noop)
   }
-  async function * generator () {
+  async function* generator() {
     let accumulatedInterval = 0
     const interval = 100
     const shouldSync = () => getHttp() != null && getSync()
@@ -41,23 +41,23 @@ function synchronizeFactory (getHttp, getInterval, getSync, getId, logger) {
   }
 
   return {
-    get synchronize () {
+    get synchronize() {
       return synchronize
     },
-    get on () {
+    get on() {
       return emitter.on
     },
-    get off () {
+    get off() {
       return emitter.off
     },
-    async run () {
+    async run() {
       for await (let result of generator()) {
         try {
           const messageId = result.lastMessageId
           const messages = result.messages
           if (messageId > getId()) {
             emitter.emit('last-message-id.new', messageId)
-            messages.forEach(m => emitter.emit('message.new', m))
+            messages.forEach((m) => emitter.emit('message.new', m))
           }
         } catch (e) {
           logger('error when sync', e.message)
@@ -66,25 +66,33 @@ function synchronizeFactory (getHttp, getInterval, getSync, getId, logger) {
     }
   }
 }
-function synchronizeEventFactory (getHttp, getInterval, getSync, getId, logger) {
+function synchronizeEventFactory(getHttp, getInterval, getSync, getId, logger) {
   const emitter = mitt()
-  const synchronize = messageId => {
+  const synchronize = (messageId) => {
     const url = UrlBuilder('api/v2/sdk/sync_event')
       .param('start_event_id', messageId)
       .build()
 
     return getHttp()
       .get(url)
-      .then(resp => {
+      .then((resp) => {
         const events = resp.body.events
         const lastId = events
-          .map(it => it.id)
+          .map((it) => it.id)
           .sort((a, b) => a - b)
           .pop()
-        const messageDelivered = events.filter(it => it.action_topic === 'delivered').map(it => it.payload.data)
-        const messageRead = events.filter(it => it.action_topic === 'read').map(it => it.payload.data)
-        const messageDeleted = events.filter(it => it.action_topic === 'delete_message').map(it => it.payload.data)
-        const roomCleared = events.filter(it => it.action_topic === 'clear_room').map(it => it.payload.data)
+        const messageDelivered = events
+          .filter((it) => it.action_topic === 'delivered')
+          .map((it) => it.payload.data)
+        const messageRead = events
+          .filter((it) => it.action_topic === 'read')
+          .map((it) => it.payload.data)
+        const messageDeleted = events
+          .filter((it) => it.action_topic === 'delete_message')
+          .map((it) => it.payload.data)
+        const roomCleared = events
+          .filter((it) => it.action_topic === 'clear_room')
+          .map((it) => it.payload.data)
         return Promise.resolve({
           lastId,
           messageDelivered,
@@ -96,7 +104,7 @@ function synchronizeEventFactory (getHttp, getInterval, getSync, getId, logger) 
       })
       .catch(noop)
   }
-  async function * generator () {
+  async function* generator() {
     let accumulatedInterval = 0
     const interval = 100
     const shouldSync = () => getHttp() != null && getSync()
@@ -111,25 +119,29 @@ function synchronizeEventFactory (getHttp, getInterval, getSync, getId, logger) 
   }
 
   return {
-    get synchronize () {
+    get synchronize() {
       return synchronize
     },
-    get on () {
+    get on() {
       return emitter.on
     },
-    get off () {
+    get off() {
       return emitter.off
     },
-    async run () {
+    async run() {
       for await (let result of generator()) {
         try {
           const eventId = result.lastId
           if (eventId > getId()) {
             emitter.emit('last-event-id.new', eventId)
-            result.messageDelivered.forEach(it => emitter.emit('message.delivered', it))
-            result.messageDeleted.forEach(it => emitter.emit('message.deleted', it))
-            result.messageRead.forEach(it => emitter.emit('message.read', it))
-            result.roomCleared.forEach(it => emitter.emit('room.cleared', it))
+            result.messageDelivered.forEach((it) =>
+              emitter.emit('message.delivered', it)
+            )
+            result.messageDeleted.forEach((it) =>
+              emitter.emit('message.deleted', it)
+            )
+            result.messageRead.forEach((it) => emitter.emit('message.read', it))
+            result.roomCleared.forEach((it) => emitter.emit('room.cleared', it))
           }
         } catch (e) {
           logger('error when sync event', e.message)
@@ -139,7 +151,10 @@ function synchronizeEventFactory (getHttp, getInterval, getSync, getId, logger) 
   }
 }
 
-export default function SyncAdapter (getHttpAdapter, { isDebug = false, interval = 5000, getShouldSync = noop }) {
+export default function SyncAdapter(
+  getHttpAdapter,
+  { isDebug = false, syncInterval, getShouldSync = noop, syncOnConnect }
+) {
   const emitter = mitt()
   const logger = (...args) => (isDebug ? console.log('QSync:', ...args) : {})
 
@@ -147,13 +162,19 @@ export default function SyncAdapter (getHttpAdapter, { isDebug = false, interval
   let lastEventId = 0
 
   const getInterval = () => {
-    if (getShouldSync()) return interval
-    return 30000
+    if (getShouldSync()) return syncInterval()
+    return syncOnConnect()
   }
-  const syncFactory = synchronizeFactory(getHttpAdapter, getInterval, getShouldSync, () => lastMessageId, logger)
-  syncFactory.on('last-message-id.new', id => (lastMessageId = id))
-  syncFactory.on('message.new', m => emitter.emit('message.new', m))
-  syncFactory.run().catch(err => logger('got error when sync', err))
+  const syncFactory = synchronizeFactory(
+    getHttpAdapter,
+    getInterval,
+    getShouldSync,
+    () => lastMessageId,
+    logger
+  )
+  syncFactory.on('last-message-id.new', (id) => (lastMessageId = id))
+  syncFactory.on('message.new', (m) => emitter.emit('message.new', m))
+  syncFactory.run().catch((err) => logger('got error when sync', err))
 
   const syncEventFactory = synchronizeEventFactory(
     getHttpAdapter,
@@ -162,28 +183,34 @@ export default function SyncAdapter (getHttpAdapter, { isDebug = false, interval
     () => lastEventId,
     logger
   )
-  syncEventFactory.on('last-event-id.new', id => {
+  syncEventFactory.on('last-event-id.new', (id) => {
     lastEventId = id
   })
-  syncEventFactory.on('message.read', it => {
+  syncEventFactory.on('message.read', (it) => {
     emitter.emit('message.read', it)
   })
-  syncEventFactory.on('message.delivered', it => emitter.emit('message.delivered', it))
-  syncEventFactory.on('message.deleted', it => emitter.emit('message.deleted', it))
-  syncEventFactory.on('room.cleared', it => emitter.emit('room.cleared', it))
-  syncEventFactory.run().catch(err => logger('got error when sync event', err))
+  syncEventFactory.on('message.delivered', (it) =>
+    emitter.emit('message.delivered', it)
+  )
+  syncEventFactory.on('message.deleted', (it) =>
+    emitter.emit('message.deleted', it)
+  )
+  syncEventFactory.on('room.cleared', (it) => emitter.emit('room.cleared', it))
+  syncEventFactory
+    .run()
+    .catch((err) => logger('got error when sync event', err))
 
   return {
-    get on () {
+    get on() {
       return emitter.on
     },
-    get off () {
+    get off() {
       return emitter.off
     },
-    synchronize () {
+    synchronize() {
       syncFactory.synchronize()
     },
-    synchronizeEvent () {
+    synchronizeEvent() {
       syncEventFactory.synchronize()
     }
   }

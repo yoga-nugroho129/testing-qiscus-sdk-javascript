@@ -37,7 +37,7 @@ export default class User {
         body.last_comment_received_id = lastReceivedCommentId
       }
 
-      return this.HTTPAdapter.post('api/v2/mobile/update_comment_status', body)
+      return this.HTTPAdapter.post('api/v2/sdk/update_comment_status', body)
     },
     300
   )
@@ -96,7 +96,7 @@ export default class User {
     if (opts.room_unique_ids) body.room_unique_id = opts.room_unique_ids
     if (opts.show_participants) body.show_participants = opts.show_participants
     if (opts.show_removed) body.show_removed = opts.show_removed
-    return this.HTTPAdapter.post_json(`api/v2/mobile/rooms_info`, body).then(
+    return this.HTTPAdapter.post_json(`api/v2/sdk/rooms_info`, body).then(
       (res) => res.body
     )
   }
@@ -151,7 +151,7 @@ export default class User {
   }
 
   getBlockedUser(page = 1, limit = 20) {
-    const url = `api/v2/mobile/get_blocked_users?page=${page}&limit=${limit}`
+    const url = `api/v2/sdk/get_blocked_users?page=${page}&limit=${limit}`
     return this.HTTPAdapter.get(url).then((res) => {
       if (res.body.status !== 200) return Promise.reject(res)
       return Promise.resolve(res.body.results.blocked_users)
@@ -164,7 +164,7 @@ export default class User {
       user_email: email
     }
 
-    return this.HTTPAdapter.post(`api/v2/mobile/block_user`, params).then(
+    return this.HTTPAdapter.post(`api/v2/sdk/block_user`, params).then(
       (res) => {
         if (res.body.status !== 200) return Promise.reject(res)
         return Promise.resolve(res.body.results.user)
@@ -178,7 +178,7 @@ export default class User {
       user_email: email
     }
 
-    return this.HTTPAdapter.post(`api/v2/mobile/unblock_user`, params).then(
+    return this.HTTPAdapter.post(`api/v2/sdk/unblock_user`, params).then(
       (res) => {
         if (res.body.status !== 200) return Promise.reject(res)
         return Promise.resolve(res.body.results.user)

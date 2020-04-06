@@ -54,7 +54,7 @@ class QiscusSDK {
     this.customEventAdapter = null
     this.isInit = false
     this.isSynced = false
-    this.syncInterval = 3000
+    this.syncInterval = 5000
     this.sync = 'socket' // possible values 'socket', 'http', 'both'
     this.enableLb = true
     this.httpsync = null
@@ -63,7 +63,7 @@ class QiscusSDK {
     this.last_received_comment_id = 0
     this.googleMapKey = ''
     this.options = {
-      avatar: true
+      avatar: true,
     }
 
     // UI related Properties
@@ -146,7 +146,7 @@ class QiscusSDK {
       AppId: this.AppId,
       userId: this.user_id,
       version: this.version,
-      getCustomHeader: () => this._customHeader
+      getCustomHeader: () => this._customHeader,
     })
     this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
       if (resp.body.results.base_url == '' && config.baseURL == undefined) {
@@ -164,8 +164,8 @@ class QiscusSDK {
         this.brokerLbUrl
       } else {
         resp.body.results.broker_lb_url == ''
-          ? (this.brokerLbUrl = `wss://${config.brokerLbUrl}:1886/mqtt`)
-          : (this.brokerLbUrl = `wss://${resp.body.results.broker_lb_url}:1886/mqtt`)
+          ? (this.brokerLbUrl = config.brokerLbUrl)
+          : (this.brokerLbUrl = resp.body.results.broker_lb_url)
       }
 
       if (resp.body.results.broker_url == '' && config.mqttURL == undefined) {
@@ -239,17 +239,20 @@ class QiscusSDK {
           : (this.syncOnConnect = resp.body.results.sync_on_connect)
       }
     })
-    
+
     // set Event Listeners
     this.setEventListeners()
 
-    this.realtimeAdapter = new MqttAdapter(this.mqttURL, this, {
+    this.realtimeAdapter = new MqttAdapter(() => this.mqttURL, this, {
       brokerLbUrl: this.brokerLbUrl,
-      enableLb: this.enableLb
+      enableLb: this.enableLb,
     })
     this.realtimeAdapter.on('connected', () => {
       if (this.options.onReconnectCallback) {
         this.options.onReconnectCallback()
+      }
+      if (!this.realtimeAdapter.connected) {
+        this.mqttURL = this.realtimeAdapter.getMqttNode()
       }
     })
     this.realtimeAdapter.on('close', () => {})
@@ -289,14 +292,14 @@ class QiscusSDK {
       this.events.emit('typing', {
         message: data.message,
         username: data.userId,
-        room_id: data.roomId
+        room_id: data.roomId,
       })
     )
     this.syncAdapter = SyncAdapter(() => this.HTTPAdapter, {
       getToken: () => this.userData.token,
       syncInterval: () => this.syncInterval,
       getShouldSync: () => this.isLogin && !this.realtimeAdapter.connected,
-      syncOnConnect: () => this.syncOnConnect
+      syncOnConnect: () => this.syncOnConnect,
     })
     this.syncAdapter.on('message.new', async (message) => {
       message = await this._hookAdapter.trigger(
@@ -340,7 +343,7 @@ class QiscusSDK {
           roomId: it.room_id,
           commentUniqueIds: it.message_unique_ids,
           isForEveryone: true,
-          isHard: true
+          isHard: true,
         })
       })
     })
@@ -368,7 +371,7 @@ class QiscusSDK {
       participants: room.participants,
       actor: userId,
       comment_id: messageId,
-      activeActorId: this.user_id
+      activeActorId: this.user_id,
     }
     room.comments.forEach((it) => {
       if (it.id <= message.id) {
@@ -391,7 +394,7 @@ class QiscusSDK {
       participants: room.participants,
       actor: userId,
       comment_id: messageId,
-      activeActorId: this.user_id
+      activeActorId: this.user_id,
     }
     room.comments.forEach((it) => {
       if (it.id <= message.id) {
@@ -423,7 +426,7 @@ class QiscusSDK {
         AppId: self.AppId,
         userId: self.user_id,
         version: self.version,
-        getCustomHeader: () => this._customHeader
+        getCustomHeader: () => this._customHeader,
       })
       self.HTTPAdapter.setToken(self.userData.token)
       self.authAdapter = new AuthAdapter(self.HTTPAdapter)
@@ -537,7 +540,7 @@ class QiscusSDK {
         AppId: this.AppId,
         userId: this.user_id,
         version: this.version,
-        getCustomHeader: () => this._customHeader
+        getCustomHeader: () => this._customHeader,
       })
       this.HTTPAdapter.setToken(this.userData.token)
 
@@ -560,13 +563,13 @@ class QiscusSDK {
     /**
      * Called when there's something wrong when connecting to qiscus SDK
      */
-    self.events.on('login-error', function(error) {
+    self.events.on('login-error', function (error) {
       if (self.options.loginErrorCallback) {
         self.options.loginErrorCallback(error)
       }
     })
 
-    self.events.on('room-cleared', function(room) {
+    self.events.on('room-cleared', function (room) {
       // find room
       if (self.selected) {
         const currentRoom = self.selected
@@ -580,14 +583,14 @@ class QiscusSDK {
       }
     })
 
-    self.events.on('comment-deleted', function(data) {
+    self.events.on('comment-deleted', function (data) {
       // get to the room id and delete the comment
       const {
         roomId,
         commentUniqueIds,
         // eslint-disable-next-line
         isForEveryone,
-        isHard
+        isHard,
       } = data
       if (self.selected && self.selected.id === roomId) {
         // loop through the array of unique_ids
@@ -613,7 +616,7 @@ class QiscusSDK {
     /**
      * Called when the comment has been delivered
      */
-    self.events.on('comment-delivered', function(response) {
+    self.events.on('comment-delivered', function (response) {
       self.logging('comment-delivered', response)
       if (!response) return false
       if (self.options.commentDeliveredCallback) {
@@ -627,7 +630,7 @@ class QiscusSDK {
     /**
      * Called when new chatroom has been created
      */
-    self.events.on('chat-room-created', function(response) {
+    self.events.on('chat-room-created', function (response) {
       self.isLoading = false
       if (self.options.chatRoomCreatedCallback) {
         self.options.chatRoomCreatedCallback(response)
@@ -637,7 +640,7 @@ class QiscusSDK {
     /**
      * Called when a new room with type of group has been created
      */
-    self.events.on('group-room-created', function(response) {
+    self.events.on('group-room-created', function (response) {
       self.isLoading = false
       if (self.options.groupRoomCreatedCallback) {
         self.options.groupRoomCreatedCallback(response)
@@ -647,7 +650,7 @@ class QiscusSDK {
     /**
      * Called when user clicked on Chat SDK Header
      */
-    self.events.on('header-clicked', function(response) {
+    self.events.on('header-clicked', function (response) {
       if (self.options.headerClickedCallback) {
         self.options.headerClickedCallback(response)
       }
@@ -656,7 +659,7 @@ class QiscusSDK {
     /**
      * Called when a comment has been read
      */
-    self.events.on('comment-read', function(response) {
+    self.events.on('comment-read', function (response) {
       self.logging('comment-read', response)
       if (self.options.commentReadCallback) {
         self.options.commentReadCallback(response)
@@ -681,14 +684,14 @@ class QiscusSDK {
         self.options.presenceCallback(message, userId)
     })
 
-    self.events.on('typing', function(data) {
+    self.events.on('typing', function (data) {
       if (self.options.typingCallback) self.options.typingCallback(data)
     })
 
     /**
      * Called when user clicked on Message Info
      */
-    self.events.on('message-info', function(response) {
+    self.events.on('message-info', function (response) {
       if (self.options.messageInfoCallback) {
         self.options.messageInfoCallback(response)
       }
@@ -716,7 +719,7 @@ class QiscusSDK {
     /**
      * Called when user was added to blocked list
      */
-    self.events.on('block-user', function(response) {
+    self.events.on('block-user', function (response) {
       if (self.options.blockUserCallback) {
         self.options.blockUserCallback(response)
       }
@@ -725,7 +728,7 @@ class QiscusSDK {
     /**
      * Called when user was removed from blocked list
      */
-    self.events.on('unblock-user', function(response) {
+    self.events.on('unblock-user', function (response) {
       if (self.options.unblockUserCallback) {
         self.options.unblockUserCallback(response)
       }
@@ -770,7 +773,7 @@ class QiscusSDK {
       email: this.user_id,
       password: this.key,
       username: this.username,
-      extras: extras ? JSON.stringify(extras) : null
+      extras: extras ? JSON.stringify(extras) : null,
     }
     if (this.avatar_url) params.avatar_url = this.avatar_url
 
@@ -939,7 +942,7 @@ class QiscusSDK {
         const lastComment = room.comments[room.comments.length - 1]
         if (lastComment) this.readComment(room.id, lastComment.id)
         this.events.emit('chat-room-created', {
-          room: room
+          room: room,
         })
 
         if (!initialMessage) return room
@@ -1006,7 +1009,7 @@ class QiscusSDK {
         const room = new Room({
           ...roomData,
           comments,
-          name: roomData.room_name
+          name: roomData.room_name,
         })
 
         self.last_received_comment_id =
@@ -1074,7 +1077,7 @@ class QiscusSDK {
 
   sortComments() {
     this.selected &&
-      this.selected.comments.sort(function(leftSideComment, rightSideComment) {
+      this.selected.comments.sort(function (leftSideComment, rightSideComment) {
         return leftSideComment.unix_timestamp - rightSideComment.unix_timestamp
       })
   }
@@ -1126,7 +1129,7 @@ class QiscusSDK {
       {
         device_token: token,
         device_platform: 'rn',
-        is_development: isDevelopment
+        is_development: isDevelopment,
       }
     )
     return res.body.results
@@ -1137,7 +1140,7 @@ class QiscusSDK {
       {
         device_token: token,
         device_platform: 'rn',
-        is_development: isDevelopment
+        is_development: isDevelopment,
       }
     )
     return res.body.results
@@ -1185,7 +1188,7 @@ class QiscusSDK {
     return request
       .post(`${this.baseURL}/api/v2/sdk/auth/verify_identity_token`)
       .send({
-        identity_token: identityToken
+        identity_token: identityToken,
       })
       .set('qiscus_sdk_app_id', `${this.AppId}`)
       .set('qiscus_sdk_version', `${this.version}`)
@@ -1247,7 +1250,7 @@ class QiscusSDK {
         () => JSON.parse(payload),
         payload,
         (error) => this.logger('Error when parsing payload', error.message)
-      )
+      ),
     }
     const pendingComment = self.prepareCommentToBeSubmitted(commentData)
 
@@ -1272,7 +1275,7 @@ class QiscusSDK {
       Hooks.MESSAGE_BEFORE_SENT,
       {
         ...pendingComment,
-        extras: extrasToBeSubmitted
+        extras: extrasToBeSubmitted,
       }
     )
     messageData = self.prepareCommentToBeSubmitted(messageData)
@@ -1320,7 +1323,7 @@ class QiscusSDK {
       .query({
         query,
         page,
-        limit
+        limit,
       })
       .then((resp) => {
         return Promise.resolve(resp.body.results)
@@ -1332,7 +1335,7 @@ class QiscusSDK {
       .query({
         room_unique_id: roomUniqueId,
         page,
-        limit
+        limit,
       })
       .then((resp) => resp.body.results)
   }
@@ -1343,7 +1346,7 @@ class QiscusSDK {
     return this.HTTPAdapter.get_request('api/v2/sdk/room_participants')
       .query({
         room_unique_id: roomUniqueId,
-        offset
+        offset,
       })
       .then((resp) => {
         return Promise.resolve(resp.body.results)
@@ -1595,7 +1598,7 @@ class QiscusSDK {
     xhr.setRequestHeader('qiscus_sdk_app_id', `${self.AppId}`)
     xhr.setRequestHeader('qiscus_sdk_user_id', `${self.user_id}`)
     xhr.setRequestHeader('qiscus_sdk_token', `${self.userData.token}`)
-    xhr.onload = function() {
+    xhr.onload = function () {
       if (xhr.status === 200) {
         // file(s) uploaded), let's post to comment
         var url = JSON.parse(xhr.response).results.file.url
@@ -1649,7 +1652,7 @@ class QiscusSDK {
             roomId,
             commentUniqueIds,
             isForEveryone,
-            isHard
+            isHard,
           })
           return Promise.resolve(res)
         },
@@ -1662,7 +1665,7 @@ class QiscusSDK {
     if (this.selected) {
       // clear the map
       this.room_name_id_map = {
-        [this.selected.name]: this.selected.id
+        [this.selected.name]: this.selected.id,
       }
       // get current index and array length
       const roomLength = this.rooms.length

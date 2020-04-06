@@ -21,7 +21,7 @@ function synchronizeFactory(getHttp, getInterval, getSync, getId, logger) {
         return Promise.resolve({
           lastMessageId,
           messages,
-          interval: getInterval()
+          interval: getInterval(),
         })
       })
       .catch(noop)
@@ -63,7 +63,7 @@ function synchronizeFactory(getHttp, getInterval, getSync, getId, logger) {
           logger('error when sync', e.message)
         }
       }
-    }
+    },
   }
 }
 function synchronizeEventFactory(getHttp, getInterval, getSync, getId, logger) {
@@ -99,7 +99,7 @@ function synchronizeEventFactory(getHttp, getInterval, getSync, getId, logger) {
           messageRead,
           messageDeleted,
           roomCleared,
-          interval: getInterval()
+          interval: getInterval(),
         })
       })
       .catch(noop)
@@ -147,7 +147,7 @@ function synchronizeEventFactory(getHttp, getInterval, getSync, getId, logger) {
           logger('error when sync event', e.message)
         }
       }
-    }
+    },
   }
 }
 
@@ -212,6 +212,6 @@ export default function SyncAdapter(
     },
     synchronizeEvent() {
       syncEventFactory.synchronize()
-    }
+    },
   }
 }

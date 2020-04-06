@@ -22,7 +22,7 @@ export default class MqttAdapter {
         this.onlinePresenceHandler.bind(this, topic),
       [when(this.reChannelMessage)]: (topic) =>
         this.channelMessageHandler.bind(this, topic),
-      [when()]: (topic) => this.logger('topic not handled', topic)
+      [when()]: (topic) => this.logger('topic not handled', topic),
     })
 
     const __mqtt_connected_handler = () => {
@@ -54,8 +54,8 @@ export default class MqttAdapter {
         will: {
           topic: `u/${core.userData.email}/s`,
           payload: 0,
-          retain: true
-        }
+          retain: true,
+        },
       }
 
       const mqtt = connect(brokerUrl, opts)
@@ -70,7 +70,7 @@ export default class MqttAdapter {
       return mqtt
     }
 
-    let mqtt = __mqtt_conneck(url)
+    let mqtt = __mqtt_conneck(url())
     this.willConnectToRealtime = false
     this.cacheRealtimeURL = url
     // Define a read-only property so user cannot accidentially
@@ -79,7 +79,7 @@ export default class MqttAdapter {
       core: { value: core },
       emitter: { value: emitter },
       mqtt: { value: mqtt, writable: true },
-      brokerLbUrl: { value: brokerLbUrl }
+      brokerLbUrl: { value: brokerLbUrl },
     })
 
     // handle load balencer
@@ -186,7 +186,7 @@ export default class MqttAdapter {
           roomId: message.room_id,
           commentUniqueIds: message.message_unique_ids,
           isForEveryone: true,
-          isHard: true
+          isHard: true,
         })
       })
     }
@@ -210,7 +210,7 @@ export default class MqttAdapter {
     this.emit('typing', {
       message,
       userId,
-      roomId
+      roomId,
     })
 
     // TODO: Don't allow side-effect
@@ -240,7 +240,7 @@ export default class MqttAdapter {
     this.emit('message-delivered', {
       commentId,
       commentUniqueId,
-      userId
+      userId,
     })
   }
 
@@ -256,7 +256,7 @@ export default class MqttAdapter {
     this.emit('message-read', {
       commentId,
       commentUniqueId,
-      userId
+      userId,
     })
   }
 

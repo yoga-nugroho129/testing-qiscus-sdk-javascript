@@ -70,11 +70,20 @@ export default class MqttAdapter {
       return mqtt
     }
 
-    let mqtt = __mqtt_conneck(url())
+    let mqtt = __mqtt_conneck(url)
+    // let mqtt = url.then((url) => __mqtt_conneck(url))
+    // url.then((url) => (mqtt = __mqtt_conneck(url)))
     this.willConnectToRealtime = false
     this.cacheRealtimeURL = url
     // Define a read-only property so user cannot accidentially
     // overwrite it's value
+    // Object.defineProperties(this, {
+    //   core: { value: core },
+    //   emitter: { value: emitter },
+    //   mqtt: { value: mqtt, writable: true },
+    //   brokerLbUrl: { value: brokerLbUrl },
+    // })
+
     Object.defineProperties(this, {
       core: { value: core },
       emitter: { value: emitter },

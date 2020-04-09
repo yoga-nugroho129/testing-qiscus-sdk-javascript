@@ -148,6 +148,7 @@ class QiscusSDK {
       version: this.version,
       getCustomHeader: () => this._customHeader,
     })
+
     this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
       if (resp.body.results.base_url == '' && config.baseURL == undefined) {
         this.baseURL
@@ -243,7 +244,18 @@ class QiscusSDK {
     // set Event Listeners
     this.setEventListeners()
 
-    this.realtimeAdapter = new MqttAdapter(() => this.mqttURL, this, {
+    // let configMqttUrl = this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
+    //     if (resp.body.results.broker_url == '' && config.mqttURL == undefined) {
+    //       return this.mqttURL
+    //     } else if (resp.body.results.broker_url == '' && config.mqttURL) {
+    //       return config.mqttURL
+    //     } else {
+    //       return resp.body.results.broker_url
+    //     }
+    //   })
+
+    this.realtimeAdapter = new MqttAdapter(this.mqttURL, this, {
+      // this.realtimeAdapter = new MqttAdapter(configMqttUrl, this, {
       brokerLbUrl: this.brokerLbUrl,
       enableLb: this.enableLb,
     })
@@ -300,6 +312,7 @@ class QiscusSDK {
       syncInterval: () => this.syncInterval,
       getShouldSync: () => this.isLogin && !this.realtimeAdapter.connected,
       syncOnConnect: () => this.syncOnConnect,
+      lastCommentId: () => this.last_received_comment_id,
     })
     this.syncAdapter.on('message.new', async (message) => {
       message = await this._hookAdapter.trigger(

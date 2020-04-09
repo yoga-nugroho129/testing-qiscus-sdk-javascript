@@ -153,23 +153,33 @@ function synchronizeEventFactory(getHttp, getInterval, getSync, getId, logger) {
 
 export default function SyncAdapter(
   getHttpAdapter,
-  { isDebug = false, syncInterval, getShouldSync = noop, syncOnConnect }
+  {
+    isDebug = false,
+    syncInterval,
+    getShouldSync = noop,
+    syncOnConnect,
+    lastCommentId,
+  }
 ) {
   const emitter = mitt()
   const logger = (...args) => (isDebug ? console.log('QSync:', ...args) : {})
 
-  let lastMessageId = 0
+  // let lastMessageId = 0
   let lastEventId = 0
 
   const getInterval = () => {
     if (getShouldSync()) return syncInterval()
     return syncOnConnect()
   }
+
+  const getLastReceiveCommentId = () => {
+    return lastCommentId()
+  }
   const syncFactory = synchronizeFactory(
     getHttpAdapter,
     getInterval,
     getShouldSync,
-    () => lastMessageId,
+    getLastReceiveCommentId,
     logger
   )
   syncFactory.on('last-message-id.new', (id) => (lastMessageId = id))

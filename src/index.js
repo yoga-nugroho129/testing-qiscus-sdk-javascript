@@ -244,18 +244,18 @@ class QiscusSDK {
     // set Event Listeners
     this.setEventListeners()
 
-    // let configMqttUrl = this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
-    //     if (resp.body.results.broker_url == '' && config.mqttURL == undefined) {
-    //       return this.mqttURL
-    //     } else if (resp.body.results.broker_url == '' && config.mqttURL) {
-    //       return config.mqttURL
-    //     } else {
-    //       return resp.body.results.broker_url
-    //     }
-    //   })
+    let configMqttUrl = this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
+        if (resp.body.results.broker_url == '' && config.mqttURL == undefined) {
+          return this.mqttURL
+        } else if (resp.body.results.broker_url == '' && config.mqttURL) {
+          return `wss://${config.mqttURL}:1886/mqtt`
+        } else {
+          return `wss://${resp.body.results.broker_url}:1886/mqtt`
+        }
+      })
 
-    this.realtimeAdapter = new MqttAdapter(this.mqttURL, this, {
-      // this.realtimeAdapter = new MqttAdapter(configMqttUrl, this, {
+    // this.realtimeAdapter = new MqttAdapter(this.mqttURL, this, {
+    this.realtimeAdapter = new MqttAdapter(configMqttUrl, this, {
       brokerLbUrl: this.brokerLbUrl,
       enableLb: this.enableLb,
     })

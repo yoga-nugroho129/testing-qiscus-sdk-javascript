@@ -92,7 +92,7 @@ class QiscusSDK {
    * @param {any} config - Qiscus SDK Configurations
    * @return {void}
    */
-  init(config) {
+  async init(config) {
     // set AppID
     if (!config.AppId) throw new Error('Please provide valid AppId')
     this.AppId = config.AppId
@@ -149,113 +149,76 @@ class QiscusSDK {
       getCustomHeader: () => this._customHeader,
     })
 
-    this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
-      if (resp.body.results.base_url == '' && config.baseURL == undefined) {
-        this.baseURL
-      } else {
-        resp.body.results.base_url == ''
-          ? (this.baseURL = config.baseURL)
-          : (this.baseURL = resp.body.results.base_url)
+    /**
+     * @callback SetterCallback
+     * @param {string | number} value
+     * @return void
+     */
+    /**
+     * @typedef {string | number | boolean | null} Parameter
+     */
+    /**
+     *
+     * @param {Parameter} fromUser
+     * @param {Parameter} fromServer
+     * @param {Parameter} defaultValue
+     * @return {Parameter}
+     */
+    const setterHelper = (fromUser, fromServer, defaultValue) => {
+      // if server provided value not null
+      // .. if boolean
+      // .. if number
+      // .. if string and not empty string
+      // .. .. use server provided value
+      // if user provided value not null
+      // .. if boolean
+      // .. if number
+      // .. if string and not empty string
+      // .. .. use user provided value
+      // use default value
+      if (fromServer != null) {
+        if (typeof fromServer !== 'string') return fromServer;
+        if (fromServer.length > 0) return fromServer;
       }
+      if (fromUser != null) {
+        if (typeof fromUser !== 'string') return fromUser;
+        if (fromUser.length > 0) return fromUser;
+      }
+      return defaultValue;
+    }
 
-      if (
-        resp.body.results.broker_lb_url == '' &&
-        config.brokerLbUrl == undefined
-      ) {
-        this.brokerLbUrl
-      } else {
-        resp.body.results.broker_lb_url == ''
-          ? (this.brokerLbUrl = config.brokerLbUrl)
-          : (this.brokerLbUrl = resp.body.results.broker_lb_url)
-      }
+    // this promise need to be awaited!
+    // or race condition will happen
+    await this.HTTPAdapter.get_request('api/v2/sdk/config')
+        // DRY!
+        .then((resp) => resp.body.results)
+        .then((cfg) => {
+          const baseUrl = ''; // default value for baseUrl
+          const brokerLbUrl = ''; // default value for brokerLbUrl
+          const brokerUrl = ''; // default value for brokerUrl
+          const enableRealtime = true; // default value for enableRealtime
+          const enableRealtimeCheck = true; // default value for enableRealtimeCheck
+          const syncInterval = 0; // default value for syncInterval
+          const syncIntervalWhenConnected = 0; // default value for syncIntervalWhenConnected
+          const enableEventReport = true; // default value for enableEventReport
+          const configExtras = {}; // default value for extras
 
-      if (resp.body.results.broker_url == '' && config.mqttURL == undefined) {
-        this.mqttURL
-      } else {
-        resp.body.results.broker_url == ''
-          ? (this.mqttURL = config.mqttURL)
-          : (this.mqttURL = resp.body.results.broker_url)
-      }
-
-      if (
-        resp.body.results.enable_event_report == null &&
-        config.enableEventReport == undefined
-      ) {
-        this.enableEventReport
-      } else {
-        resp.body.results.enable_event_report == null
-          ? (this.enableEventReport = config.enableEventReport)
-          : (this.enableEventReport = resp.body.results.enable_event_report)
-      }
-
-      if (
-        resp.body.results.enable_realtime == null &&
-        config.enableRealtime == undefined
-      ) {
-        this.enableRealtime
-      } else {
-        resp.body.results.enable_realtime == null
-          ? (this.enableRealtime = config.enableRealtime)
-          : (this.enableRealtime = resp.body.results.enable_realtime)
-      }
-
-      if (
-        resp.body.results.enable_realtime_check == null &&
-        config.enableRealtimeCheck == undefined
-      ) {
-        this.enableRealtimeCheck
-      } else {
-        resp.body.results.enable_realtime_check == null
-          ? (this.enableRealtimeCheck = config.enableRealtimeCheck)
-          : (this.enableRealtimeCheck = resp.body.results.enable_realtime_check)
-      }
-
-      if (
-        resp.body.results.sync_interval == '' &&
-        config.syncInterval == undefined
-      ) {
-        this.syncInterval
-      } else {
-        resp.body.results.sync_interval == ''
-          ? (this.syncInterval = config.syncInterval)
-          : (this.syncInterval = resp.body.results.sync_interval)
-      }
-
-      if (resp.body.results.extras == '' && config.extras == undefined) {
-        this.extras
-      } else {
-        resp.body.results.extras == ''
-          ? (this.extras = config.extras)
-          : (this.extras = resp.body.results.extras)
-      }
-
-      if (
-        resp.body.results.sync_on_connect == '' &&
-        config.syncOnConnect == undefined
-      ) {
-        this.syncOnConnect
-      } else {
-        resp.body.results.sync_on_connect == ''
-          ? (this.syncOnConnect = config.syncOnConnect)
-          : (this.syncOnConnect = resp.body.results.sync_on_connect)
-      }
-    })
+          this.baseURL = setterHelper(config.baseURL, cfg.base_url, baseUrl);
+          this.brokerLbUrl = setterHelper(config.brokerLbURL, cfg.broker_lb_url, brokerLbUrl);
+          this.brokerUrl = setterHelper(config.brokerUrl, cfg.broker_url, brokerUrl);
+          this.enableRealtime = setterHelper(config.enableRealtime, cfg.enable_realtime, enableRealtime);
+          this.syncInterval = setterHelper(config.syncInterval, cfg.sync_interval, syncInterval);
+          this.syncOnConnect = setterHelper(config.syncOnConnect, cfg.sync_on_connect, syncIntervalWhenConnected);
+          // since user never provide this value
+          this.enableRealtimeCheck = setterHelper(null, cfg.enable_realtime_check, enableRealtimeCheck);
+          this.enableEventReport = setterHelper(null, cfg.enable_event_report, enableEventReport);
+          this.extras = setterHelper(null, cfg.extras, configExtras);
+        });
 
     // set Event Listeners
     this.setEventListeners()
 
-    let configMqttUrl = this.HTTPAdapter.get_request('api/v2/sdk/config').then((resp) => {
-        if (resp.body.results.broker_url == '' && config.mqttURL == undefined) {
-          return this.mqttURL
-        } else if (resp.body.results.broker_url == '' && config.mqttURL) {
-          return `wss://${config.mqttURL}:1886/mqtt`
-        } else {
-          return `wss://${resp.body.results.broker_url}:1886/mqtt`
-        }
-      })
-
-    // this.realtimeAdapter = new MqttAdapter(this.mqttURL, this, {
-    this.realtimeAdapter = new MqttAdapter(configMqttUrl, this, {
+    this.realtimeAdapter = new MqttAdapter(this.mqttURL, this, {
       brokerLbUrl: this.brokerLbUrl,
       enableLb: this.enableLb,
     })

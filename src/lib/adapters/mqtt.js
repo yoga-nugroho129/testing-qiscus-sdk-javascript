@@ -46,10 +46,10 @@ export default class MqttAdapter {
       this.logger('error', err.message)
     }
     const __mqtt_conneck = (brokerUrl) => {
-      // if (this.mqtt != null) {
-      //   this.mqtt.removeAllListeners()
-      //   this.mqtt = null
-      // }
+      if (this.mqtt != null) {
+        this.mqtt.removeAllListeners()
+        this.mqtt = null
+      }
       const opts = {
         will: {
           topic: `u/${core.userData.email}/s`,
@@ -66,17 +66,14 @@ export default class MqttAdapter {
       mqtt.addListener('error', __mqtt_error_handler)
       mqtt.addListener('message', __mqtt_message_handler)
       // #endregion
-
       return mqtt
     }
 
-    // let mqtt = __mqtt_conneck(url)
-    let mqtt = url.then((res) => (mqtt = __mqtt_conneck(res)))
+    let mqtt = __mqtt_conneck(url)
+    this.cacheRealtimeURL = url
     this.willConnectToRealtime = false
-    this.cacheRealtimeURL = url.then((url) => (this.cacheRealtimeURL = url))
     // Define a read-only property so user cannot accidentially
     // overwrite it's value
-
     Object.defineProperties(this, {
       core: { value: core },
       emitter: { value: emitter },
@@ -117,29 +114,48 @@ export default class MqttAdapter {
   }
 
   get connected() {
-    this.mqtt.then((mqtt) => {
-      return mqtt.connected
-    })
+    if (this.mqtt == null) return false
+    return this.mqtt.connected
   }
 
+  subscribtionBuffer = []
   subscribe(...args) {
     this.logger('subscribe to', args)
-    this.mqtt.then((mqtt) => {
-      mqtt.subscribe(...args)
-    })
+    this.subscribtionBuffer.push(args)
+    if (this.mqtt != null) {
+      do {
+        const subs = this.subscribtionBuffer.shift()
+        if (subs != null) this.mqtt.subscribe(...args)
+      } while (this.subscribtionBuffer.length > 0)
+    }
   }
 
+  unsubscribtionBuffer = []
   unsubscribe(...args) {
     this.logger('unsubscribe from', args)
-    this.mqtt.then((mqtt) => {
-      mqtt.unsubscribe(...args)
-    })
+    if (this.mqtt != null) {
+      do {
+        const subs = this.unsubscribtionBuffer.shift()
+        if (subs != null) {
+          this.mqtt.unsubscribe(...subs)
+        }
+      } while (this.unsubscribtionBuffer.length > 0)
+    }
   }
 
+  publishBuffer = []
   publish(topic, payload, options = {}) {
-    this.mqtt.then((mqtt) => {
-      return mqtt.publish(topic, payload.toString(), options)
-    })
+    this.publishBuffer.push({ topic, payload, options })
+    do {
+      const data = this.publishBuffer.shift()
+      if (data != null) {
+        return this.mqtt.publish(
+          data.topic,
+          data.payload.toString(),
+          data.options
+        )
+      }
+    } while (this.publishBuffer.length > 0)
   }
 
   emit(...args) {
@@ -327,9 +343,7 @@ export default class MqttAdapter {
 
   disconnect() {
     this.publishPresence(this.core.userData.email, false),
-      this.mqtt.then((mqtt) => {
-        this.unsubscribe(Object.keys(mqtt._resubscribeTopics))
-      })
+      this.unsubscribe(Object.keys(this.mqtt._resubscribeTopics))
   }
 
   subscribeUserPresence(userId) {

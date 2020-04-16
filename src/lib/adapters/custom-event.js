@@ -6,10 +6,8 @@ export default function CustomEventAdapter(mqttAdapter, userId) {
   const subscribedTopics = {}
 
   const reTopic = /^r\/[\w]+\/[\w]+\/e$/i
-  mqttAdapter.mqtt.then((mqtt) => {
-    mqtt.on('message', (topic, payload) => {
-      if (reTopic.test(topic)) events.emit(topic, payload)
-    })
+  mqttAdapter.mqtt.on('message', (topic, payload) => {
+    if (reTopic.test(topic)) events.emit(topic, payload)
   })
 
   const getTopic = (roomId) => `r/${roomId}/${roomId}/e`

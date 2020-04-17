@@ -43,7 +43,7 @@ class QiscusSDK {
     this.AppId = null
     this.baseURL = 'https://api.qiscus.com'
     this.uploadURL = `${this.baseURL}/api/v2/sdk/upload`
-    this.brokerUrl = 'wss://mqtt.qiscus.com:1886/mqtt'
+    this.mqttURL = 'wss://mqtt.qiscus.com:1886/mqtt'
     this.brokerLbUrl = 'https://realtime.qiscus.com'
     this.syncOnConnect = 10000
     this.enableEventReport = false
@@ -101,7 +101,7 @@ class QiscusSDK {
     const isDifferentBaseUrl =
       config.baseURL != null && this.baseURL !== config.baseURL
     const isDifferentMqttUrl =
-      config.mqttURL != null && this.brokerUrl !== config.mqttURL
+      config.mqttURL != null && this.mqttURL !== config.mqttURL
     const isDifferentBrokerLbUrl =
       config.brokerLbURL != null && this.brokerLbUrl !== config.brokerLbURL
     // disable realtime lb if user change baseUrl or mqttUrl but did not change
@@ -118,8 +118,7 @@ class QiscusSDK {
       this.enableLb = config.enableRealtimeLB
     }
     if (config.baseURL) this.baseURL = config.baseURL
-    if (config.mqttURL) this.brokerUrl = config.brokerUrl || config.mqttURL
-    if (config.mqttURL) this.brokerUrl = config.brokerUrl || config.mqttURL
+    if (config.mqttURL) this.mqttURL = config.brokerUrl || config.mqttURL
     if (config.brokerLbURL) this.brokerLbUrl = config.brokerLbURL
     if (config.uploadURL) this.uploadURL = config.uploadURL
     if (config.sync) this.sync = config.sync
@@ -166,15 +165,25 @@ class QiscusSDK {
      */
 
     const setterHelper = (fromUser, fromServer, defaultValue) => {
-      if (fromServer != null) {
-        if (typeof fromServer !== 'string') return fromServer
-        if (fromServer.length > 0) return fromServer
+      if (fromServer == '') {
+        if (fromUser != null) {
+          if (typeof fromUser !== 'string') return fromUser
+          if (fromUser.length > 0) return fromUser
+        }
       }
-      if (fromUser != null) {
-        if (typeof fromUser !== 'string') return fromUser
-        if (fromUser.length > 0) return fromUser
+      if (fromServer != null) {
+        if (fromServer.length > 0) return fromServer
+        if (typeof fromServer !== 'string') return fromServer
       }
       return defaultValue
+    }
+
+    const mqttWssCheck = (mqttResult) => {
+      if(mqttResult.includes('wss://')) {
+        return mqttResult
+      } else {
+        return `wss://${mqttResult}:1886/mqtt`
+      }
     }
 
     await this.HTTPAdapter.get_request('api/v2/sdk/config')
@@ -183,7 +192,7 @@ class QiscusSDK {
       .then((cfg) => {
         const baseUrl = this.baseURL // default value for baseUrl
         const brokerLbUrl = this.brokerLbUrl // default value for brokerLbUrl
-        const brokerUrl = this.brokerUrl // default value for brokerUrl
+        const mqttUrl = this.mqttURL // default value for brokerUrl
         const enableRealtime = this.enableRealtime // default value for enableRealtime
         const enableRealtimeCheck = this.enableRealtimeCheck // default value for enableRealtimeCheck
         const syncInterval = this.syncInterval // default value for syncInterval
@@ -192,42 +201,14 @@ class QiscusSDK {
         const configExtras = {} // default value for extras
 
         this.baseURL = setterHelper(config.baseURL, cfg.base_url, baseUrl)
-        this.brokerLbUrl = setterHelper(
-          config.brokerLbURL,
-          cfg.broker_lb_url,
-          brokerLbUrl
-        )
-        this.brokerUrl = setterHelper(
-          config.brokerUrl,
-          cfg.broker_url,
-          brokerUrl
-        )
-        this.enableRealtime = setterHelper(
-          config.enableRealtime,
-          cfg.enable_realtime,
-          enableRealtime
-        )
-        this.syncInterval = setterHelper(
-          config.syncInterval,
-          cfg.sync_interval,
-          syncInterval
-        )
-        this.syncOnConnect = setterHelper(
-          config.syncOnConnect,
-          cfg.sync_on_connect,
-          syncIntervalWhenConnected
-        )
+        this.brokerLbUrl = setterHelper(config.brokerLbURL, cfg.broker_lb_url, brokerLbUrl )
+        this.mqttURL = mqttWssCheck(setterHelper(config.mqttURL, cfg.broker_url, mqttUrl))
+        this.enableRealtime = setterHelper(config.enableRealtime, cfg.enable_realtime, enableRealtime)
+        this.syncInterval = setterHelper(config.syncInterval, cfg.sync_interval, syncInterval)
+        this.syncOnConnect = setterHelper(config.syncOnConnect, cfg.sync_on_connect, syncIntervalWhenConnected)
         // since user never provide this value
-        this.enableRealtimeCheck = setterHelper(
-          null,
-          cfg.enable_realtime_check,
-          enableRealtimeCheck
-        )
-        this.enableEventReport = setterHelper(
-          null,
-          cfg.enable_event_report,
-          enableEventReport
-        )
+        this.enableRealtimeCheck = setterHelper(null, cfg.enable_realtime_check, enableRealtimeCheck)
+        this.enableEventReport = setterHelper(null, cfg.enable_event_report, enableEventReport)
         this.extras = setterHelper(null, cfg.extras, configExtras)
       })
 
@@ -235,7 +216,7 @@ class QiscusSDK {
     this.setEventListeners()
 
     this.realtimeAdapter = new MqttAdapter(
-      `wss://${this.brokerUrl}:1886/mqtt`,
+      this.mqttURL,
       this,
       {
         brokerLbUrl: this.brokerLbUrl,
@@ -246,12 +227,23 @@ class QiscusSDK {
       if (this.options.onReconnectCallback) {
         this.options.onReconnectCallback()
       }
-      if (!this.realtimeAdapter.connected) {
-        this.brokerUrl = this.realtimeAdapter.getMqttNode()
+      if(this.enableRealtime === false) {
+        this.realtimeAdapter.mqtt.connected = false
       }
     })
     this.realtimeAdapter.on('close', () => {})
     this.realtimeAdapter.on('reconnect', () => {
+      if (this.realtimeAdapter.connected === false) {
+        this.realtimeAdapter.getMqttNode().then(res => this.mqttURL = res)
+        this.realtimeAdapter = new MqttAdapter(
+          this.mqttURL,
+          this,
+          {
+            brokerLbUrl: this.brokerLbUrl,
+            enableLb: this.enableLb,
+          }
+        )
+      }
       if (this.isLogin) {
         this.synchronize()
         this.synchronizeEvent()
@@ -548,7 +540,9 @@ class QiscusSDK {
         clearInterval(this.presencePublisherId)
       }
 
-      this.presencePublisherId = this.publishOnlinePresence(true)
+      this.presencePublisherId = setInterval(() => {
+        this.realtimeAdapter.publishPresence(this.user_id, true)
+      }, 3500)
 
       // if (this.sync === "http" || this.sync === "both") this.activateSync();
       if (this.options.loginSuccessCallback) {
@@ -805,7 +799,7 @@ class QiscusSDK {
       clearInterval(setBackToOnline)
       setTimeout(() => {
         this.realtimeAdapter.publishPresence(this.user_id, false)
-      }, 3500)
+      }, 5000)
     }
   }
 

@@ -133,6 +133,7 @@ export default class MqttAdapter {
   unsubscribtionBuffer = []
   unsubscribe(...args) {
     this.logger('unsubscribe from', args)
+    this.unsubscribtionBuffer.push(args)
     if (this.mqtt != null) {
       do {
         const subs = this.unsubscribtionBuffer.shift()

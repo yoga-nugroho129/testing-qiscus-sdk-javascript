@@ -224,15 +224,6 @@ class QiscusSDK {
       }
     )
     this.realtimeAdapter.on('connected', () => {
-      if (this.options.onReconnectCallback) {
-        this.options.onReconnectCallback()
-      }
-      if(this.enableRealtime === false) {
-        this.realtimeAdapter.mqtt.connected = false
-      }
-    })
-    this.realtimeAdapter.on('close', () => {})
-    this.realtimeAdapter.on('reconnect', () => {
       if (this.realtimeAdapter.connected === false) {
         this.realtimeAdapter.getMqttNode().then(res => this.mqttURL = res)
         this.realtimeAdapter = new MqttAdapter(
@@ -244,6 +235,15 @@ class QiscusSDK {
           }
         )
       }
+      if (this.options.onReconnectCallback) {
+        this.options.onReconnectCallback()
+      }
+      if(this.enableRealtime === false) {
+        this.realtimeAdapter.mqtt.connected = false
+      }
+    })
+    this.realtimeAdapter.on('close', () => {})
+    this.realtimeAdapter.on('reconnect', () => {
       if (this.isLogin) {
         this.synchronize()
         this.synchronizeEvent()

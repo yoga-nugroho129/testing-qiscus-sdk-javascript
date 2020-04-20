@@ -20,7 +20,7 @@ export default class User {
       unique_temp_id: uniqueId,
       type: type,
       payload: payload,
-      extras
+      extras,
     }).then((res) => {
       if (res.body.status !== 200) return Promise.reject(res)
       return Promise.resolve(res.body.results.comment)
@@ -30,7 +30,7 @@ export default class User {
   updateCommentStatus = throttle(
     (roomId, lastReadCommentId, lastReceivedCommentId) => {
       const body = {
-        room_id: roomId
+        room_id: roomId,
       }
       if (lastReadCommentId) body.last_comment_read_id = lastReadCommentId
       if (lastReceivedCommentId) {
@@ -60,7 +60,7 @@ export default class User {
     const body = {
       query: params.query || null,
       room_id: params.room_id || null,
-      last_comment_id: params.last_comment_id || null
+      last_comment_id: params.last_comment_id || null,
     }
     return this.HTTPAdapter.post('api/v2/sdk/search_messages', body).then(
       (res) => res.body.results.comments
@@ -71,7 +71,7 @@ export default class User {
     const body = {
       name: params.name || null,
       avatar_url: params.avatar_url || null,
-      extras: params.extras ? JSON.stringify(params.extras) : null
+      extras: params.extras ? JSON.stringify(params.extras) : null,
     }
     return this.HTTPAdapter.patch('api/v2/sdk/my_profile', body).then(
       (res) => res.body.results.user
@@ -80,7 +80,7 @@ export default class User {
 
   uploadFile(file) {
     const body = {
-      file: file
+      file: file,
     }
     return this.HTTPAdapter.post(`api/v2/sdk/upload`, body).then(
       (res) => res.body
@@ -90,7 +90,7 @@ export default class User {
   getRoomsInfo(opts) {
     const body = {
       show_participants: true,
-      show_removed: false
+      show_removed: false,
     }
     if (opts.room_ids) body.room_id = opts.room_ids
     if (opts.room_unique_ids) body.room_unique_id = opts.room_unique_ids
@@ -128,7 +128,7 @@ export default class User {
     const body = {
       unique_ids: commentUniqueIds,
       is_delete_for_everyone: isForEveryone,
-      is_hard_delete: isHard
+      is_hard_delete: isHard,
     }
     return this.HTTPAdapter.del(`api/v2/sdk/delete_messages`, body).then(
       (res) => res.body
@@ -137,7 +137,7 @@ export default class User {
 
   clearRoomMessages(roomIds) {
     const body = {
-      room_channel_ids: roomIds
+      room_channel_ids: roomIds,
     }
     return this.HTTPAdapter.del(`api/v2/sdk/clear_room_messages`, body).then(
       (res) => res.body
@@ -161,7 +161,7 @@ export default class User {
   blockUser(email) {
     if (!email) throw new Error('email is required')
     let params = {
-      user_email: email
+      user_email: email,
     }
 
     return this.HTTPAdapter.post(`api/v2/sdk/block_user`, params).then(
@@ -175,7 +175,7 @@ export default class User {
   unblockUser(email) {
     if (!email) throw new Error('email is required')
     const params = {
-      user_email: email
+      user_email: email,
     }
 
     return this.HTTPAdapter.post(`api/v2/sdk/unblock_user`, params).then(
